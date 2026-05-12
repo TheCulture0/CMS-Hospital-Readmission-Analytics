@@ -1,0 +1,78 @@
+USE EDAC 
+GO
+
+--Readmission view
+CREATE VIEW dbo.vw_readmissions
+AS
+SELECT
+	Facility_ID,
+	Facility_Name,
+	State,
+	Measure_Name,
+	Number_of_Discharges,
+	Number_of_Readmissions,
+	Excess_Readmission_Ratio
+FROM EDAC.dbo.Readmissions
+WHERE Number_of_Discharges IS NOT NULL
+AND Number_of_Readmissions IS NOT NULL
+
+GO
+
+--HCAHPS Test
+--SELECT Top 100 *
+--FROM dbo.HCAHPS;
+
+--HCAHPS Rating view
+--Data transformation to flatten the data set then turn it into a view
+CREATE VIEW dbo.vw_HCAHPS 
+AS
+WITH hca AS (
+SELECT 
+	Facility_ID,
+	Facility_Name,
+	State,
+	ZIP_Code,
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_COMP_1_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Nurse_Comm_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_COMP_2_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Doctor_Comm_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_COMP_5_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Comm_About_Meds_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_COMP_6_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Discharge_Info_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_HSP_RATING_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Overall_Hosp_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_RECMND_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Recommedation_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_CLEAN_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Cleanliness_Rating],
+	MAX(CASE WHEN HCAHPS_Measure_ID = 'H_QUIET_STAR_RATING' THEN Patient_Survey_Star_Rating END) [Quietness_Rating]
+FROM dbo.HCAHPS
+GROUP BY 
+Facility_ID,
+Facility_Name,
+State,
+ZIP_Code)
+
+SELECT * FROM hca 
+WHERE Overall_Hosp_Rating IS NOT NULL
+
+GO
+
+--SELECT * FROM dbo.vw_HCAHPS
+--====================================
+
+--Test to compare Facility IDs in both views 
+SELECT DISTINCT
+	r.Facility_ID
+
+FROM dbo.Readmissions r
+WHERE r.Facility_ID NOT IN (SELECT Facility_ID FROM dbo.vw_HCAHPS h)
+
+--Create unique list of Facility IDs
+CREATE TABLE dbo.hospital (
+	Facility_ID nvarchar(10),
+	Facility_Name nvarchar(100)
+	)
+INSERT INTO dbo.hospital(
+	Facility_ID,
+	Facility_Name)
+SELECT DISTINCT
+	Facility_ID,
+	Facility_Name
+FROM dbo.Readmissions
+
+SELECT * FROM dbo.hospital
